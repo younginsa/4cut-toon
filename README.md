@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 하루네컷
 
-## Getting Started
+오늘 하루를 **한 줄**로 적으면 **네컷만화**가 되는 웹서비스.
 
-First, run the development server:
+핵심 기능: 한 줄을 적으면 **등장 인물을 자동으로 추출**하고, 그중 주인공을 고르면
+그 인물의 시점으로 하루를 재해석해 그려줍니다. 같은 한 줄이라도 주인공이 바뀌면
+전혀 다른 만화가 나옵니다.
+
+## 실행
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+API 키가 없으면 **데모 모드**로 동작합니다 (고정 대본, 이미지 없음).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## AI 활성화
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`.env.local` 파일을 만들고 [Vercel AI Gateway 키](https://vercel.com/~/ai-gateway/api-keys)를 넣으세요.
+키 하나로 대본 작성(LLM)과 만화 그리기(이미지 생성)가 모두 동작합니다.
 
-## Learn More
+```env
+AI_GATEWAY_API_KEY=your_key_here
 
-To learn more about Next.js, take a look at the following resources:
+# (선택) 모델 오버라이드
+# HARU_TEXT_MODEL=anthropic/claude-sonnet-4.5
+# HARU_IMAGE_MODEL=google/gemini-2.5-flash-image
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 구조
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `app/page.tsx` — 입력 → 인물 선택 → 결과 렌더링 흐름
+- `app/api/characters/route.ts` — 한 줄에서 등장 인물 추출 (데모 모드는 사전 기반)
+- `app/api/comic/route.ts` — 2단계 생성 파이프라인
+  1. LLM이 선택된 시점으로 4컷 대본 작성 (`generateObject`)
+  2. 이미지 모델이 2x2 네컷만화 한 장 생성 (`generateImage`)
+  - 이미지 생성 실패 시 대본 카드로 폴백, 키 없으면 데모 모드
 
-## Deploy on Vercel
+## 알려진 이슈
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 한글 디렉토리 경로에서 Turbopack이 크래시하는 버그가 있어
+  `dev`/`build` 스크립트가 `--webpack`을 사용합니다.

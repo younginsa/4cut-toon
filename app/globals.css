@@ -1,26 +1,89 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #faf6ef;
+  --foreground: #2b2622;
+  --accent: #ff6b4a;
+  --panel: #ffffff;
+  --line: #2b2622;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-accent: var(--accent);
+  --color-panel: var(--panel);
+  --color-line: var(--line);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Malgun Gothic",
+    system-ui, -apple-system, sans-serif;
+}
+
+/* 로딩 졸라맨: 시트 위를 왕복하며 뛰어다닌다 */
+.stickman-runner {
+  position: absolute;
+  animation: run-across 3.2s linear infinite;
+}
+
+.stickman-runner.reverse {
+  animation-direction: reverse;
+}
+
+.stickman-runner.reverse svg {
+  transform: scaleX(-1);
+}
+
+@keyframes run-across {
+  from {
+    left: -14%;
+  }
+  to {
+    left: 108%;
+  }
+}
+
+.stickman-svg {
+  animation: stickman-bob 0.32s ease-in-out infinite alternate;
+}
+
+@keyframes stickman-bob {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-4px);
+  }
+}
+
+.stickman-leg-l,
+.stickman-leg-r {
+  transform-origin: 20px 38px;
+  animation: stickman-kick 0.32s ease-in-out infinite alternate;
+}
+
+.stickman-leg-r {
+  animation-delay: -0.32s;
+}
+
+.stickman-arm-l,
+.stickman-arm-r {
+  transform-origin: 20px 23px;
+  animation: stickman-kick 0.32s ease-in-out infinite alternate;
+}
+
+.stickman-arm-l {
+  animation-delay: -0.32s;
+}
+
+@keyframes stickman-kick {
+  from {
+    transform: rotate(38deg);
+  }
+  to {
+    transform: rotate(-38deg);
+  }
 }
