@@ -1,9 +1,11 @@
 import { generateObject, generateText } from "ai";
+import sharp from "sharp";
 import { z } from "zod";
 
 export const maxDuration = 120;
 
-const TEXT_MODEL = process.env.HARU_TEXT_MODEL ?? "anthropic/claude-sonnet-4.5";
+const TEXT_MODEL =
+  process.env.HARU_TEXT_MODEL ?? "google/gemini-3.1-flash-lite";
 const IMAGE_MODEL =
   process.env.HARU_IMAGE_MODEL ?? "google/gemini-2.5-flash-image";
 
@@ -121,7 +123,7 @@ async function drawComic(script: Script): Promise<string | null> {
         "Characters are extremely simple wobbly blob shapes with tiny dot eyes and a small mouth, no detailed anatomy.",
         "Shaky imperfect linework, naive amateur charm. Use rough scribbled crosshatch/hatching fills for comedic over-dramatic emphasis, otherwise lots of empty white space.",
         "Mood: silly gag comic — exaggerated goofy expressions, comedic slapstick poses, funny timing. Keep it lighthearted and absurd, never gloomy.",
-        "COMPLETELY WORDLESS: absolutely no text, no letters, no words, no speech bubbles, no title, no sound effects, no captions anywhere in the image.",
+        "COMPLETELY WORDLESS: absolutely no text, no letters, no words, no digits, no panel numbers, no speech bubbles, no title, no sound effects, no captions anywhere in the image.",
         "Also no letter-like scribbles, smudges, symbols, or calligraphy floating in the air — keep backgrounds clean.",
         "Tell the story purely through facial expressions, body language, and composition (motion lines and sweat drops are OK).",
         "Each of the 4 panels must show a clearly different moment — vary the camera angle, framing, and action so the story progresses panel to panel.",
@@ -130,9 +132,11 @@ async function drawComic(script: Script): Promise<string | null> {
     });
     const image = files.find((f) => f.mediaType.startsWith("image/"));
     if (!image) return null;
-    return image.base64.startsWith("data:")
-      ? image.base64
-      : `data:${image.mediaType};base64,${image.base64}`;
+    // 원본 PNG가 2MB에 육박해서 모바일 전송용으로 JPEG 압축
+    const jpeg = await sharp(Buffer.from(image.uint8Array))
+      .jpeg({ quality: 85 })
+      .toBuffer();
+    return `data:image/jpeg;base64,${jpeg.toString("base64")}`;
   } catch (error) {
     console.error("image generation failed:", error);
     return null;
@@ -159,8 +163,13 @@ export async function POST(request: Request) {
   }
 
   try {
+    const t0 = Date.now();
     const script = await writeScript(line, protagonist);
+    const t1 = Date.now();
     const image = await drawComic(script);
+    console.log(
+      `comic timing: script ${((t1 - t0) / 1000).toFixed(1)}s, image ${((Date.now() - t1) / 1000).toFixed(1)}s`,
+    );
     return Response.json({ demo: false, script, image });
   } catch (error) {
     console.error("comic generation failed:", error);

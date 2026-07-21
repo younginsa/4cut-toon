@@ -3,7 +3,8 @@ import { z } from "zod";
 
 export const maxDuration = 30;
 
-const TEXT_MODEL = process.env.HARU_TEXT_MODEL ?? "anthropic/claude-sonnet-4.5";
+const TEXT_MODEL =
+  process.env.HARU_TEXT_MODEL ?? "google/gemini-3.1-flash-lite";
 
 const requestSchema = z.object({
   line: z.string().trim().min(1).max(200),
