@@ -226,12 +226,6 @@ export default function Home() {
           <p className="mt-1 text-center text-xs opacity-50">
             주인공: {resultHero} · 다른 인물을 누르면 그 시점으로 다시 그려요
           </p>
-          {result.script.povPanel && (
-            <p className="mt-1 text-center text-xs font-bold text-accent">
-              👁 {result.script.povPanel}컷은 {resultHero}의 눈에만 보였던
-              장면이에요
-            </p>
-          )}
 
           {result.image ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -249,14 +243,7 @@ export default function Home() {
                     i % 2 === 0 ? "border-r-2" : ""
                   } ${i < result.script.panels.length - 2 ? "border-b-2" : ""}`}
                 >
-                  <span className="text-xs font-black opacity-40">
-                    {i + 1}컷
-                    {result.script.povPanel === i + 1 && (
-                      <span className="ml-1 text-accent opacity-100">
-                        👁 {resultHero}의 시야
-                      </span>
-                    )}
-                  </span>
+                  <span className="text-xs font-black opacity-40">{i + 1}컷</span>
                   <p className="mt-1 flex-1 text-xs leading-relaxed opacity-70">
                     {panel.scene}
                   </p>
