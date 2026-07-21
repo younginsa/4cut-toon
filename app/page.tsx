@@ -133,19 +133,17 @@ export default function Home() {
           maxLength={200}
           className="mt-1 w-full resize-none bg-transparent text-lg outline-none placeholder:opacity-40"
         />
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <p className="text-xs opacity-50">
-            딱 한 줄이면 충분해요. 등장 인물은 자동으로 찾아드려요.{" "}
-            <span className="tabular-nums">({line.length}/200)</span>
-          </p>
-          <button
-            type="submit"
-            disabled={!line.trim() || busy}
-            className="rounded-full border-2 border-line bg-line px-5 py-1.5 text-sm font-bold text-white transition enabled:hover:bg-accent enabled:hover:border-accent disabled:opacity-40"
-          >
-            {extracting ? "인물 찾는 중..." : "인물 찾기"}
-          </button>
-        </div>
+        <p className="mt-2 text-xs opacity-50">
+          딱 한 줄이면 충분해요. 등장 인물은 자동으로 찾아드려요.{" "}
+          <span className="tabular-nums">({line.length}/200)</span>
+        </p>
+        <button
+          type="submit"
+          disabled={!line.trim() || busy}
+          className="mt-3 w-full rounded-xl border-2 border-line bg-line py-3 text-base font-bold text-white transition enabled:hover:bg-accent enabled:hover:border-accent disabled:opacity-40"
+        >
+          {extracting ? "인물 찾는 중..." : "인물 찾기"}
+        </button>
       </form>
 
       {characters && (
