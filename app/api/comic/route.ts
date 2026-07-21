@@ -26,6 +26,12 @@ const scriptSchema = z.object({
       }),
     )
     .length(4),
+  povPanel: z
+    .number()
+    .int()
+    .min(1)
+    .max(4)
+    .describe("'주인공만 볼 수 있는 장면' 컷 번호 (1~4)"),
 });
 
 type Script = z.infer<typeof scriptSchema>;
@@ -57,6 +63,7 @@ function demoScript(line: string, hero: string): Script {
         dialogue: "그래도 뭐, 이것도 하루네.",
       },
     ],
+    povPanel: 2,
   };
 }
 
@@ -80,6 +87,11 @@ async function writeScript(line: string, protagonist: string): Promise<Script> {
       "- 입력에 부정적 감정이 직접 있더라도 최대한 웃음으로 승화시키는 방향으로.",
       "마지막 컷은 여운보다는 빵 터지는 반전이나 허무 개그로 마무리해주세요.",
       "",
+      "시점 강조 규칙 (중요): 4컷 중 정확히 한 컷은 '주인공만 볼 수 있는 장면'이어야 합니다.",
+      "- 주인공의 눈에 비친 1인칭 시야(POV 샷), 또는 다른 인물들은 아무도 모르는 주인공만의 비밀스러운 순간.",
+      "- 주인공이 바뀌면 이 컷이 완전히 달라지도록, 그 인물이 아니면 절대 볼 수 없는 장면으로 만들어주세요.",
+      "- 그 컷 번호를 povPanel에 담아주세요.",
+      "",
       `시점: ${pov}`,
       "",
       `오늘의 한 줄: "${line}"`,
@@ -91,7 +103,11 @@ async function writeScript(line: string, protagonist: string): Promise<Script> {
 
 async function drawComic(script: Script): Promise<string | null> {
   const panelLines = script.panels
-    .map((p, i) => `Panel ${i + 1}: ${p.scene}`)
+    .map((p, i) =>
+      i + 1 === script.povPanel
+        ? `Panel ${i + 1} (FIRST-PERSON POV — drawn as seen through the protagonist's own eyes, protagonist not visible or only hands/feet visible): ${p.scene}`
+        : `Panel ${i + 1}: ${p.scene}`,
+    )
     .join("\n");
 
   try {
