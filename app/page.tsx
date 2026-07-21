@@ -10,6 +10,15 @@ type ComicResult = {
   image: string | null;
 };
 
+function track(event: string, data?: Record<string, string | number>) {
+  if (typeof window === "undefined") return;
+  (
+    window as {
+      umami?: { track: (e: string, d?: Record<string, string | number>) => void };
+    }
+  ).umami?.track(event, data);
+}
+
 function Stickman() {
   return (
     <svg
@@ -65,6 +74,7 @@ export default function Home() {
     setError(null);
     setResult(null);
     setCharacters(null);
+    track("find_characters", { length: line.trim().length });
     try {
       const res = await fetch("/api/characters", {
         method: "POST",
@@ -74,7 +84,9 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "인물 추출에 실패했어요.");
       setCharacters(data.characters);
+      track("characters_found", { count: data.characters.length });
     } catch (err) {
+      track("characters_failed");
       setError(err instanceof Error ? err.message : "인물 추출에 실패했어요.");
     } finally {
       setExtracting(false);
@@ -85,7 +97,11 @@ export default function Home() {
     if (busy) return;
     setGenerating(hero);
     setError(null);
+    const isPovSwitch = result !== null;
     setResult(null);
+    const pov = hero === "나" ? "나" : "상대";
+    track("generate_comic", { pov, switch: isPovSwitch ? 1 : 0 });
+    const t0 = Date.now();
     try {
       const res = await fetch("/api/comic", {
         method: "POST",
@@ -96,7 +112,14 @@ export default function Home() {
       if (!res.ok) throw new Error(data.error ?? "생성에 실패했어요.");
       setResult(data);
       setResultHero(hero);
+      track("comic_generated", {
+        pov,
+        image: data.image ? 1 : 0,
+        demo: data.demo ? 1 : 0,
+        seconds: Math.round((Date.now() - t0) / 1000),
+      });
     } catch (err) {
+      track("comic_failed", { pov });
       setError(err instanceof Error ? err.message : "생성에 실패했어요.");
     } finally {
       setGenerating(null);
