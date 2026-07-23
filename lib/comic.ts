@@ -2,19 +2,12 @@ import { generateObject, generateText } from "ai";
 import sharp from "sharp";
 import { z } from "zod";
 
-export const maxDuration = 120;
-
 const TEXT_MODEL =
   process.env.HARU_TEXT_MODEL ?? "google/gemini-3.1-flash-lite";
 const IMAGE_MODEL =
   process.env.HARU_IMAGE_MODEL ?? "google/gemini-2.5-flash-image";
 
-const requestSchema = z.object({
-  line: z.string().trim().min(1).max(200),
-  protagonist: z.string().trim().min(1).max(20),
-});
-
-const scriptSchema = z.object({
+export const scriptSchema = z.object({
   title: z.string().describe("만화 제목, 10자 내외"),
   panels: z
     .array(
@@ -36,15 +29,15 @@ const scriptSchema = z.object({
     .describe("'주인공만 볼 수 있는 장면' 컷 번호 (1~4)"),
 });
 
-type Script = z.infer<typeof scriptSchema>;
+export type Script = z.infer<typeof scriptSchema>;
 
-function hasGatewayCredentials() {
+export function hasGatewayCredentials() {
   return Boolean(
     process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN,
   );
 }
 
-function demoScript(line: string, hero: string): Script {
+export function demoScript(line: string, hero: string): Script {
   return {
     title: `${hero}의 하루 (데모)`,
     panels: [
@@ -69,7 +62,10 @@ function demoScript(line: string, hero: string): Script {
   };
 }
 
-async function writeScript(line: string, protagonist: string): Promise<Script> {
+export async function writeScript(
+  line: string,
+  protagonist: string,
+): Promise<Script> {
   const pov =
     protagonist === "나"
       ? "글쓴이 본인이 주인공입니다. 글쓴이의 시점에서 그날의 감정과 속마음이 드러나게 그려주세요."
@@ -83,11 +79,17 @@ async function writeScript(line: string, protagonist: string): Promise<Script> {
       "아래 '오늘의 한 줄'을 기승전결이 있는 4컷 개그 만화 대본으로 만들어주세요.",
       "이 만화는 대사 없이 그림만으로 이야기하는 무언(無言) 만화입니다.",
       "각 컷의 장면은 표정과 동작만으로 감정이 전달되게 구체적으로 묘사해주세요.",
-      "톤 규칙 (중요):",
-      "- 기본 톤은 무조건 명랑하고 웃긴 개그. 과장된 표정, 슬랩스틱, 엉뚱한 상상, 허를 찌르는 개그를 적극 활용.",
+      "",
+      "맥락 규칙 (가장 중요, 다른 모든 규칙보다 우선):",
+      "- 만화는 반드시 입력된 한 줄의 내용과 맥락 안에서만 전개하세요.",
+      "- 입력에 구체적인 사건이 있으면: 그 사건의 시작부터 끝까지만 4컷으로 쪼개세요. 입력에 없는 새로운 사건·장소·인물·소품을 지어내지 마세요. 반전도 그 상황 안에서 일어나는 작은 반전이어야 합니다.",
+      "- 입력에 사건 없이 감정이나 상태만 있으면(예: '오늘도 귀여운 우리아들'): 큰 사건을 지어내지 말고, 그 감정이 느껴지는 일상의 순간 포착을 4컷으로 그리세요 — 시선, 표정 변화, 소소한 몸짓 위주. 유머는 과장된 사건이 아니라 귀여운 관찰에서 나오게 하세요.",
+      "",
+      "톤 규칙:",
+      "- 기본 톤은 명랑하고 웃긴 개그. 과장된 표정과 몸짓, 타이밍으로 웃기세요.",
       "- 입력에 슬픔·불안·좌절 같은 부정적 감정이 직접 적혀 있지 않다면, 그런 어두운 정서는 절대 넣지 마세요. 좌절/한숨/우울 장면 금지.",
       "- 입력에 부정적 감정이 직접 있더라도 최대한 웃음으로 승화시키는 방향으로.",
-      "마지막 컷은 여운보다는 빵 터지는 반전이나 허무 개그로 마무리해주세요.",
+      "마지막 컷은 여운보다는 웃긴 반전이나 허무 개그로 마무리하되, 입력된 상황을 벗어나지 마세요.",
       "",
       "시점 강조 규칙 (중요): 4컷 중 정확히 한 컷은 '주인공만 볼 수 있는 장면'이어야 합니다.",
       "- 주인공의 눈에 비친 1인칭 시야(POV 샷), 또는 다른 인물들은 아무도 모르는 주인공만의 비밀스러운 순간.",
@@ -103,7 +105,7 @@ async function writeScript(line: string, protagonist: string): Promise<Script> {
   return object;
 }
 
-async function drawComic(script: Script): Promise<string | null> {
+export async function drawComic(script: Script): Promise<string | null> {
   const panelLines = script.panels
     .map((p, i) =>
       i + 1 === script.povPanel
@@ -140,42 +142,5 @@ async function drawComic(script: Script): Promise<string | null> {
   } catch (error) {
     console.error("image generation failed:", error);
     return null;
-  }
-}
-
-export async function POST(request: Request) {
-  const parsed = requestSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) {
-    return Response.json(
-      { error: "한 줄 입력을 확인해주세요. (1~200자)" },
-      { status: 400 },
-    );
-  }
-
-  const { line, protagonist } = parsed.data;
-
-  if (!hasGatewayCredentials()) {
-    return Response.json({
-      demo: true,
-      script: demoScript(line, protagonist),
-      image: null,
-    });
-  }
-
-  try {
-    const t0 = Date.now();
-    const script = await writeScript(line, protagonist);
-    const t1 = Date.now();
-    const image = await drawComic(script);
-    console.log(
-      `comic timing: script ${((t1 - t0) / 1000).toFixed(1)}s, image ${((Date.now() - t1) / 1000).toFixed(1)}s`,
-    );
-    return Response.json({ demo: false, script, image });
-  } catch (error) {
-    console.error("comic generation failed:", error);
-    return Response.json(
-      { error: "만화 생성에 실패했어요. 잠시 후 다시 시도해주세요." },
-      { status: 502 },
-    );
   }
 }

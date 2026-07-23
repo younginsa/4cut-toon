@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { animate, stagger, svg } from "animejs";
+import { useEffect, useState } from "react";
 
 type Character = { name: string; hint: string };
 type Panel = { scene: string; dialogue: string };
@@ -17,6 +18,65 @@ function track(event: string, data?: Record<string, string | number>) {
       umami?: { track: (e: string, d?: Record<string, string | number>) => void };
     }
   ).umami?.track(event, data);
+}
+
+// 이미지가 그려지는 동안 각 컷에 낙서가 "그려지는 중"인 연필 라인드로잉
+const PENCIL_DOODLES = [
+  // 웃는 얼굴
+  "M50 12 a38 38 0 1 0 0.1 0 M36 42 a4 4 0 1 0 .1 0 M64 42 a4 4 0 1 0 .1 0 M33 60 q17 16 34 0",
+  // 고양이
+  "M28 42 l-9 -20 l18 7 M72 42 l9 -20 l-18 7 M50 24 a32 32 0 1 0 .1 0 M40 50 a3 3 0 1 0 .1 0 M60 50 a3 3 0 1 0 .1 0 M44 62 q6 7 12 0 M20 55 l-12 -3 M20 62 l-12 3 M80 55 l12 -3 M80 62 l12 3",
+  // 하트
+  "M50 80 C18 58 18 24 45 30 C50 32 50 36 50 36 C50 36 50 32 55 30 C82 24 82 58 50 80",
+  // 소용돌이 낙서
+  "M50 50 q12 -16 27 -5 q16 11 1 26 q-21 16 -37 -4 q-13 -19 6 -32 q24 -15 40 9",
+];
+
+function PencilSheet({ hero }: { hero: string }) {
+  useEffect(() => {
+    const animation = animate(svg.createDrawable(".pencil-path"), {
+      draw: ["0 0", "0 1"],
+      ease: "inOutSine",
+      duration: 1600,
+      delay: stagger(450),
+      loop: true,
+      alternate: true,
+    });
+    return () => {
+      animation.revert();
+    };
+  }, []);
+
+  return (
+    <div className="mt-4">
+      <div className="grid grid-cols-2 overflow-hidden rounded-2xl border-2 border-line bg-panel shadow-[4px_4px_0_0_var(--line)]">
+        {PENCIL_DOODLES.map((d, i) => (
+          <div
+            key={i}
+            className={`flex aspect-square items-center justify-center border-line ${
+              i % 2 === 0 ? "border-r-2" : ""
+            } ${i < 2 ? "border-b-2" : ""}`}
+          >
+            <svg
+              viewBox="0 0 100 100"
+              className="h-2/3 w-2/3"
+              fill="none"
+              stroke="var(--line)"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity="0.5"
+            >
+              <path className="pencil-path" d={d} />
+            </svg>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-center text-sm opacity-60">
+        {hero}의 시점으로 그리는 중... 밑그림부터 슥슥
+      </p>
+    </div>
+  );
 }
 
 function Stickman() {
@@ -55,11 +115,12 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ComicResult | null>(null);
   const [resultHero, setResultHero] = useState<string | null>(null);
+  const [imagePending, setImagePending] = useState(false);
   const [placeholder] = useState(
     () => PLACEHOLDERS[Math.floor(Math.random() * PLACEHOLDERS.length)],
   );
 
-  const busy = extracting || generating !== null;
+  const busy = extracting || generating !== null || imagePending;
 
   function resetForNewLine(value: string) {
     setLine(value);
@@ -103,19 +164,37 @@ export default function Home() {
     track("generate_comic", { pov, switch: isPovSwitch ? 1 : 0 });
     const t0 = Date.now();
     try {
-      const res = await fetch("/api/comic", {
+      // 1단계: 대본 (2~3초) — 도착하면 연필 밑그림 애니메이션으로 전환
+      const scriptRes = await fetch("/api/comic/script", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ line: line.trim(), protagonist: hero }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "생성에 실패했어요.");
-      setResult(data);
+      const scriptData = await scriptRes.json();
+      if (!scriptRes.ok)
+        throw new Error(scriptData.error ?? "생성에 실패했어요.");
+      setResult({ demo: scriptData.demo, script: scriptData.script, image: null });
       setResultHero(hero);
+      setGenerating(null);
+
+      if (scriptData.demo) {
+        track("comic_generated", { pov, image: 0, demo: 1, seconds: 0 });
+        return;
+      }
+
+      // 2단계: 이미지 — 완성되면 갈아끼우기
+      setImagePending(true);
+      const imageRes = await fetch("/api/comic/image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ script: scriptData.script }),
+      });
+      const imageData = imageRes.ok ? await imageRes.json() : { image: null };
+      setResult((prev) => (prev ? { ...prev, image: imageData.image } : prev));
       track("comic_generated", {
         pov,
-        image: data.image ? 1 : 0,
-        demo: data.demo ? 1 : 0,
+        image: imageData.image ? 1 : 0,
+        demo: 0,
         seconds: Math.round((Date.now() - t0) / 1000),
       });
     } catch (err) {
@@ -123,6 +202,7 @@ export default function Home() {
       setError(err instanceof Error ? err.message : "생성에 실패했어요.");
     } finally {
       setGenerating(null);
+      setImagePending(false);
     }
   }
 
@@ -248,7 +328,9 @@ export default function Home() {
             주인공: {resultHero} · 다른 인물을 누르면 그 시점으로 다시 그려요
           </p>
 
-          {result.image ? (
+          {imagePending ? (
+            <PencilSheet hero={resultHero ?? "주인공"} />
+          ) : result.image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={result.image}

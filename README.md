@@ -30,11 +30,11 @@ AI_GATEWAY_API_KEY=your_key_here
 
 ## 구조
 
-- `app/page.tsx` — 입력 → 인물 선택 → 결과 렌더링 흐름
+- `app/page.tsx` — 입력 → 인물 선택 → 결과 렌더링 흐름 (로딩: 졸라맨 → 연필 밑그림 애니메이션)
 - `app/api/characters/route.ts` — 한 줄에서 등장 인물 추출 (데모 모드는 사전 기반)
-- `app/api/comic/route.ts` — 2단계 생성 파이프라인
-  1. LLM이 선택된 시점으로 4컷 대본 작성 (`generateObject`)
-  2. 이미지 모델이 2x2 네컷만화 한 장 생성 (`generateImage`)
+- `lib/comic.ts` — 대본 작성(`writeScript`)과 이미지 생성(`drawComic`) 공용 로직
+- `app/api/comic/script/route.ts` — 1단계: 선택된 시점으로 4컷 대본 (2~4초)
+- `app/api/comic/image/route.ts` — 2단계: 흑백 낙서풍 무언 만화 한 장 (~10초, JPEG 압축)
   - 이미지 생성 실패 시 대본 카드로 폴백, 키 없으면 데모 모드
 
 ## 알려진 이슈
